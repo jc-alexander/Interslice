@@ -466,3 +466,45 @@ class WaveformGenerator:
         amp = (np.zeros(len(times))+1)*amp
 
         return ([amp,phis])
+
+    def hetrodyne_BIR(self,theta,chirp,duration,lamb=10,beta=np.arctan(10),amp=1):
+
+        npts = int(duration*self.sample_rate)
+
+        npts = int(duration*self.sample_rate)
+        t = np.linspace(0, duration, npts)
+
+        half_time = duration/2;
+        quarter_time = duration/4;
+        dt = 1/self.sample_rate
+
+        # Four pulse sequence
+        time1 = np.array([i for i in t if i < quarter_time])
+        amp1 = 1*np.tanh(lamb*(1-4*np.divide(time1,duration)))
+        freq1 = np.tan(np.multiply(beta,4*np.divide(time1,duration)))/(np.tan(beta)*2*np.pi)
+
+        time2 = np.array([i for i in t if i >= quarter_time and i < half_time])
+        amp2 = 1*np.tanh(lamb*(4*np.divide(time2,duration)-1))
+        freq2 = np.tan(np.multiply(beta,4*np.divide(time2,duration)-2))/(np.tan(beta)*2*np.pi)
+
+        time3 = np.array([i for i in t if i >= half_time and i < 3*quarter_time])
+        amp3 = 1*np.tanh(lamb*(3-4*np.divide(time3,duration)))
+        freq3 = np.tan(np.multiply(beta,4*np.divide(time3,duration)-2))/(np.tan(beta)*2*np.pi)
+
+        time4 = np.array([i for i in t if i >= 3*quarter_time])
+        amp4 = 1*np.tanh(lamb*(4*np.divide(time4,duration)-3))
+        freq4 = np.tan(np.multiply(beta,4*np.divide(time4,duration)-4))/(np.tan(beta)*2*np.pi)
+
+        phi1 =  np.pi + theta/2 # Discontinuity in phase determines theta rotation
+        phi2 = -np.pi - theta/2
+
+        freqshift = 0.5*chirp/max(freq1) # +/- frequency to chirp over
+        freq = 2*np.pi*np.multiply(freqshift,np.concatenate([freq1, freq2, freq3, freq4]))
+        # This freq is in rad/s
+
+        phase = cumtrapz(freq,initial=0)*dt # Integrate frequency to get accumulated phase
+        phase = np.add(phase,np.concatenate([np.repeat(0,len(time1)), np.repeat(phi1,len(time2)+len(time3)), np.repeat(phi1+phi2,len(time4))]))
+
+        amplitude=np.multiply(amp,np.concatenate([amp1, amp2, amp3, amp4]))
+
+        return ([amplitude,phase*180/np.pi])
